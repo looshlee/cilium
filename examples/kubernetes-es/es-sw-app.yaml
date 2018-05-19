@@ -116,7 +116,13 @@ metadata:
 spec:
   containers:
   - name: bookreader
-    image: cilium/esclient:v1 
+    image: cilium/esclient:v2
+    imagePullPolicy: Never
+    env:
+    - name: NAMESPACE
+      valueFrom:
+        fieldRef:
+          fieldPath: metadata.namespace
 ---
 apiVersion: v1
 kind: Pod
@@ -128,4 +134,10 @@ metadata:
 spec:
   containers:
   - name: bookreader
-    image: cilium/esclient:v1 
+    image: cilium/esclient:v2
+    imagePullPolicy: Never
+    env:
+    - name: NAMESPACE
+      valueFrom:
+        fieldRef:
+          fieldPath: metadata.namespace 

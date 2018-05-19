@@ -2,11 +2,9 @@ Step 0: Install kubectl & minikube
 ==================================
 
 1. Install ``kubectl`` version ``>= 1.7.0`` as described in the
-`Kubernetes Docs
-<https://kubernetes.io/docs/tasks/tools/install-kubectl/>`_.
+`Kubernetes Docs <https://kubernetes.io/docs/tasks/tools/install-kubectl/>`_.
 
-2. Install one of the `hypervisors supported by minikube
-   <https://kubernetes.io/docs/tasks/tools/install-minikube/>`_.
+2. Install one of the `hypervisors supported by minikube <https://kubernetes.io/docs/tasks/tools/install-minikube/>`_.
 
 3. Install ``minikube`` ``>= 0.22.3`` as described on `minikube's
 github page <https://github.com/kubernetes/minikube/releases>`_.

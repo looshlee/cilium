@@ -87,7 +87,7 @@ Sidious has access to perform ``GET`` and ``PUT`` as expected. But see what happ
 Step 4: Securing Elasticsearch Using Cilium
 ===========================================
 
-Fortunately for Darth Sidious, the Empire DevOps team is using Cilium for their Kubernetes cluster. Cilium provides L7 visibility and security policies to control Elasticsearch API access. In this case, Sidious orders to get the following policy pushed which gives him both ``GET`` and ``PUT`` access to his pods but restricts Vader's pods to only ``GET`` access.
+Fortunately for Darth Sidious, the Empire DevOps team is using Cilium for their Kubernetes cluster. Cilium provides L7 visibility and security policies to control Elasticsearch API access. In this case, Sidious orders to get the following policy pushed which gives him both ``GET`` and ``PUT`` access from his pod but restricts Vader's pod to only ``GET`` access.
 
 .. literalinclude:: ../../examples/kubernetes-es/es-sw-policy.yaml
 
