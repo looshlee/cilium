@@ -42,6 +42,7 @@
  */
 static inline void update_metrics(__u32 bytes, __u8 direction, __u8 reason)
 {
+#if 0
     struct metrics_value *entry, newEntry = {};
     struct metrics_key key = {};
 
@@ -57,6 +58,7 @@ static inline void update_metrics(__u32 bytes, __u8 direction, __u8 reason)
             newEntry.bytes = (__u64)bytes;
             map_update_elem(&cilium_metrics, &key, &newEntry, 0);
     }
+#endif
 }
 
 #endif /* __LIB_METRICS__ */

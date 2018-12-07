@@ -484,14 +484,14 @@ skip_service_lookup:
 	case CT_REPLY:
 		policy_mark_skip(skb);
 
-		if (ct_state.rev_nat_index) {
-			ret = lb4_rev_nat(skb, l3_off, l4_off, &csum_off,
-					  &ct_state, &tuple, 0);
-			if (IS_ERR(ret)) {
-				relax_verifier();
-				return ret;
-			}
-		}
+//		if (ct_state.rev_nat_index) {
+//			ret = lb4_rev_nat(skb, l3_off, l4_off, &csum_off,
+//					  &ct_state, &tuple, 0);
+//			if (IS_ERR(ret)) {
+//				relax_verifier();
+//				return ret;
+//			}
+//		}
 		break;
 
 	default:
@@ -777,7 +777,7 @@ ipv4_policy(struct __sk_buff *skb, int ifindex, __u32 src_label, int *forwarding
 	return TC_ACT_OK;
 }
 
-__section_tail(CILIUM_MAP_CALLS, CILIUM_CALL_IPV4_TO_LXC) int tail_ipv4_policy(struct __sk_buff *skb) {
+/*__section_tail(CILIUM_MAP_CALLS, CILIUM_CALL_IPV4_TO_LXC)*/ static inline int tail_ipv4_policy(struct __sk_buff *skb) {
 	struct ep_config *cfg = lookup_ep_config();
 	int ret, ifindex = skb->cb[CB_IFINDEX];
 	__u32 src_label = skb->cb[CB_SRC_LABEL];
@@ -809,15 +809,16 @@ __section_tail(CILIUM_MAP_POLICY, LXC_ID) int handle_policy(struct __sk_buff *sk
 	__u32 src_label = skb->cb[CB_SRC_LABEL];
 
 	switch (skb->protocol) {
-	case bpf_htons(ETH_P_IPV6):
-		ep_tail_call(skb, CILIUM_CALL_IPV6_TO_LXC);
-		ret = DROP_MISSED_TAIL_CALL;
-		break;
+//	case bpf_htons(ETH_P_IPV6):
+//		ep_tail_call(skb, CILIUM_CALL_IPV6_TO_LXC);
+//		ret = DROP_MISSED_TAIL_CALL;
+//		break;
 
 #ifdef LXC_IPV4
 	case bpf_htons(ETH_P_IP):
-		ep_tail_call(skb, CILIUM_CALL_IPV4_TO_LXC);
-		ret = DROP_MISSED_TAIL_CALL;
+//		ep_tail_call(skb, CILIUM_CALL_IPV4_TO_LXC);
+		return tail_ipv4_policy(skb);
+		//ret = DROP_MISSED_TAIL_CALL;
 		break;
 #endif
 
@@ -854,8 +855,8 @@ __section("entry") int handle_egress(struct __sk_buff *skb)
 	switch (skb->protocol) {
 	case bpf_htons(ETH_P_IPV6):
 //		cilium_dbg3(skb, DBG_GENERIC, 0, 0, __LINE__);
-		printk2("XXX v8 %p: %u\n", skb, __LINE__);
-		ep_tail_call(skb, CILIUM_CALL_IPV6_FROM_LXC);
+		printk2("XXX v9 %p: %u\n", skb, __LINE__);
+//		ep_tail_call(skb, CILIUM_CALL_IPV6_FROM_LXC);
 		ret = DROP_MISSED_TAIL_CALL;
 		break;
 
@@ -864,8 +865,8 @@ __section("entry") int handle_egress(struct __sk_buff *skb)
 //		cilium_dbg3(skb, DBG_GENERIC, 0, 0, __LINE__);
 //		printk2("XXX %p: %u\n", skb, __LINE__);
 //		ep_tail_call(skb, CILIUM_CALL_IPV4_FROM_LXC);
-		tail_handle_ipv4(skb);
-		ret = DROP_MISSED_TAIL_CALL;
+		return tail_handle_ipv4(skb);
+		//ret = DROP_MISSED_TAIL_CALL;
 		break;
 #endif
 

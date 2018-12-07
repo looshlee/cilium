@@ -104,29 +104,29 @@ static inline int __inline__ ipv4_local_delivery(struct __sk_buff *skb, int l3_o
 						 __u32 seclabel, struct iphdr *ip4,
 						 struct endpoint_info *ep, __u8 direction)
 {
-	int ret;
+//	int ret;
 
-	cilium_dbg(skb, DBG_LOCAL_DELIVERY, ep->lxc_id, seclabel);
+//	cilium_dbg(skb, DBG_LOCAL_DELIVERY, ep->lxc_id, seclabel);
 
-	mac_t lxc_mac = ep->mac;
-	mac_t router_mac = ep->node_mac;
+//	mac_t lxc_mac = ep->mac;
+//	mac_t router_mac = ep->node_mac;
 
-	ret = ipv4_l3(skb, l3_off, (__u8 *) &router_mac, (__u8 *) &lxc_mac, ip4);
-	if (ret != TC_ACT_OK)
-		return ret;
+//	ret = ipv4_l3(skb, l3_off, (__u8 *) &router_mac, (__u8 *) &lxc_mac, ip4);
+//	if (ret != TC_ACT_OK)
+//		return ret;
 
-	cilium_dbg(skb, DBG_LXC_FOUND, ep->ifindex, 0);
+//	cilium_dbg(skb, DBG_LXC_FOUND, ep->ifindex, 0);
 	skb->cb[CB_SRC_LABEL] = seclabel;
 	skb->cb[CB_IFINDEX] = ep->ifindex;
 
-#if defined LXC_ID
-	/*
-	 * Special LXC case for updating egress forwarding metrics.
-	 * Note that the packet could still be dropped but it would show up
-	 * as an ingress drop counter in metrics.
-	 */
-	update_metrics(skb->len, direction, REASON_FORWARDED);
-#endif
+//#if defined LXC_ID
+//	/*
+//	 * Special LXC case for updating egress forwarding metrics.
+//	 * Note that the packet could still be dropped but it would show up
+//	 * as an ingress drop counter in metrics.
+//	 */
+//	update_metrics(skb->len, direction, REASON_FORWARDED);
+//#endif
 	tail_call(skb, &cilium_policy, ep->lxc_id);
 	return DROP_MISSED_TAIL_CALL;
 }
