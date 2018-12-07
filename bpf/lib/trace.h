@@ -66,6 +66,13 @@ enum {
 #define MONITOR_AGGREGATION TRACE_AGGREGATE_NONE
 #endif
 
+static inline void send_trace_notify(struct __sk_buff *skb, __u8 obs_point, __u32 src, __u32 dst,
+		                                     __u16 dst_id, __u32 ifindex, __u8 reason, __u32 monitor)
+{
+	return;
+}
+
+#if 0
 #ifdef TRACE_NOTIFY
 
 struct trace_notify {
@@ -180,6 +187,7 @@ static inline void send_trace_notify(struct __sk_buff *skb, __u8 obs_point, __u3
 	}
 }
 
+#endif
 #endif
 
 #endif /* __LIB_TRACE__ */

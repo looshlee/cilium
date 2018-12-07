@@ -371,7 +371,7 @@ static inline int handle_ipv4_from_lxc(struct __sk_buff *skb, __u32 *dstID)
 	int ret, verdict, l3_off = ETH_HLEN, l4_off, forwarding_reason;
 	struct csum_offset csum_off = {};
 	struct endpoint_info *ep;
-	struct lb4_service *svc;
+	//struct lb4_service *svc;
 	struct lb4_key key = {};
 	struct ct_state ct_state_new = {};
 	struct ct_state ct_state = {};
@@ -401,6 +401,7 @@ static inline int handle_ipv4_from_lxc(struct __sk_buff *skb, __u32 *dstID)
 	}
 
 	ct_state_new.orig_dport = key.dport;
+#if 0
 #ifdef ENABLE_IPV4
 	if ((svc = lb4_lookup_service(skb, &key)) != NULL) {
 		ret = lb4_local(get_ct_map4(&tuple), skb, l3_off, l4_off, &csum_off,
@@ -408,6 +409,7 @@ static inline int handle_ipv4_from_lxc(struct __sk_buff *skb, __u32 *dstID)
 		if (IS_ERR(ret))
 			return ret;
 	}
+#endif
 #endif
 skip_service_lookup:
 	/* The verifier wants to see this assignment here in case the above goto
@@ -559,7 +561,7 @@ pass_to_stack:
 	return TC_ACT_OK;
 }
 
-__section_tail(CILIUM_MAP_CALLS, CILIUM_CALL_IPV4_FROM_LXC) int tail_handle_ipv4(struct __sk_buff *skb)
+/*__section_tail(CILIUM_MAP_CALLS, CILIUM_CALL_IPV4_FROM_LXC)*/ static inline int tail_handle_ipv4(struct __sk_buff *skb)
 {
 	__u32 dstID = 0;
 	int ret = handle_ipv4_from_lxc(skb, &dstID);
@@ -831,6 +833,13 @@ __section_tail(CILIUM_MAP_POLICY, LXC_ID) int handle_policy(struct __sk_buff *sk
 	return ret;
 }
 
+# define printk2(fmt, ...)                                       \
+                ({                                              \
+                        char ____fmt[] = fmt;                   \
+                       trace_printk(____fmt, sizeof(____fmt),  \
+                                     ##__VA_ARGS__);            \
+                })
+
 __section("entry") int handle_egress(struct __sk_buff *skb)
 {
 	int ret;
@@ -839,16 +848,23 @@ __section("entry") int handle_egress(struct __sk_buff *skb)
 
 	send_trace_notify(skb, TRACE_FROM_LXC, SECLABEL, 0, 0, 0, 0,
 			  TRACE_PAYLOAD_LEN);
+//	cilium_dbg3(skb, DBG_GENERIC, 0, 0, __LINE__);
+//	printk2("XXX %p: %u\n", skb, __LINE__);
 
 	switch (skb->protocol) {
 	case bpf_htons(ETH_P_IPV6):
+//		cilium_dbg3(skb, DBG_GENERIC, 0, 0, __LINE__);
+		printk2("XXX v8 %p: %u\n", skb, __LINE__);
 		ep_tail_call(skb, CILIUM_CALL_IPV6_FROM_LXC);
 		ret = DROP_MISSED_TAIL_CALL;
 		break;
 
 #ifdef LXC_IPV4
 	case bpf_htons(ETH_P_IP):
-		ep_tail_call(skb, CILIUM_CALL_IPV4_FROM_LXC);
+//		cilium_dbg3(skb, DBG_GENERIC, 0, 0, __LINE__);
+//		printk2("XXX %p: %u\n", skb, __LINE__);
+//		ep_tail_call(skb, CILIUM_CALL_IPV4_FROM_LXC);
+		tail_handle_ipv4(skb);
 		ret = DROP_MISSED_TAIL_CALL;
 		break;
 #endif
