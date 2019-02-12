@@ -189,7 +189,9 @@ func AllocateIdentity(lbls labels.Labels) (*identity.Identity, bool, error) {
 		"isNew":                  isNew,
 	}).Debug("Resolved identity")
 
-	return identity.NewIdentity(identity.NumericIdentity(id), lbls), isNew, nil
+	identity := identity.NewIdentity(identity.NumericIdentity(id), lbls)
+	// FIXME: add SHA
+	return identity, isNew, nil
 }
 
 // Release is the reverse operation of AllocateIdentity() and releases the

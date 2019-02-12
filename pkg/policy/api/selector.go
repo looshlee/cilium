@@ -38,6 +38,8 @@ type EndpointSelector struct {
 	//
 	// Kept as a pointer to allow EndpointSelector to be used as a map key.
 	requirements *k8sLbls.Requirements
+
+	// FIXME: Add SHA
 }
 
 // LabelSelectorString returns a user-friendly string representation of
@@ -271,6 +273,22 @@ func (n *EndpointSelector) AddMatch(key, value string) {
 // Returns always true if the endpoint selector contains the reserved label for
 // "all".
 func (n *EndpointSelector) Matches(lblsToMatch k8sLbls.Labels) bool {
+	// FIXME ^^^ replace k8sLbls.Labels with new struct that also contains
+	// SHA of labels.Labels
+
+	// FIXME: Lookup n.SHA&labels.SHA in cache
+	//
+	// lookupCache = map[string]bool{}
+	//
+	//
+	// if n.SHA != "" && lblsToMatch.SHA != "" {
+	// 	lookupSHA := n.SHA + ":" + lblsToMatch.SHA
+	// 	if result, ok := lookupCache[lookupSHA]; ok {
+	// 		return result
+	// 		// mark as LRU use / update timestamp
+	// 	}
+	// }
+	//
 
 	// Try to update cached requirements for this EndpointSelector if possible.
 	if n.requirements == nil {
@@ -295,6 +313,11 @@ func (n *EndpointSelector) Matches(lblsToMatch k8sLbls.Labels) bool {
 		}
 	}
 	return true
+
+	// if n.SHA != "" && lblsToMatch.SHA != "" {
+	// 	lookupCache[lookupSHA] = result
+	// 	// TODO: expire oldest timestamp
+	// }
 }
 
 // IsWildcard returns true if the endpoint selector selects all endpoints.

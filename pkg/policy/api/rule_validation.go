@@ -45,6 +45,8 @@ func (r Rule) Sanitize() error {
 		}
 	}
 
+	// FIXME: Fill in SHA in r.EndpointSelector
+
 	if r.EndpointSelector.LabelSelector == nil {
 		return fmt.Errorf("rule cannot have nil EndpointSelector")
 	}

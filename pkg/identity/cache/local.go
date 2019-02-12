@@ -98,6 +98,8 @@ func (l *localIdentityCache) lookupOrCreate(lbls labels.Labels) (*identity.Ident
 		ReferenceCount: 1,
 	}
 
+	// FIXME: fill in SHA
+
 	l.identitiesByLabels[stringRepresentation] = id
 	l.identitiesByID[numericIdentity] = id
 
