@@ -15,7 +15,10 @@
 package kvstore
 
 import (
+	"strings"
 	"sync"
+
+	"github.com/cilium/cilium/pkg/lock"
 )
 
 // EventType defines the type of watch event that occurred
@@ -75,26 +78,26 @@ type Watcher struct {
 	// Events is the channel to which change notifications will be sent to
 	Events EventChan
 
-	name      string
-	prefix    string
-	stopWatch stopChan
+	name   string
+	prefix string
 
 	// stopOnce guarantees that Stop() is only called once
 	stopOnce sync.Once
 
-	// stopWait is the wait group to wait for watchers to exit gracefully
-	stopWait sync.WaitGroup
+	stopFunc StopFunc
 }
 
-func newWatcher(name, prefix string, chanSize int) *Watcher {
-	w := &Watcher{
-		name:      name,
-		prefix:    prefix,
-		Events:    make(EventChan, chanSize),
-		stopWatch: make(stopChan, 0),
-	}
+type StopFunc interface {
+	WatcherStopped(prefix string)
+}
 
-	w.stopWait.Add(1)
+func newWatcher(name, prefix string, chanSize int, stopFunc StopFunc) *Watcher {
+	w := &Watcher{
+		name:     name,
+		prefix:   prefix,
+		Events:   make(EventChan, chanSize),
+		stopFunc: stopFunc,
+	}
 
 	return w
 }
@@ -120,8 +123,65 @@ func ListAndWatch(name, prefix string, chanSize int) *Watcher {
 // Stop stops a watcher previously created and started with Watch()
 func (w *Watcher) Stop() {
 	w.stopOnce.Do(func() {
-		close(w.stopWatch)
 		log.WithField(fieldWatcher, w).Debug("Stopped watcher")
-		w.stopWait.Wait()
+		if w.stopFunc != nil {
+			w.stopFunc.WatcherStopped(w.prefix)
+		}
+		close(w.Events)
 	})
+}
+
+type watcherState struct {
+	mutex    lock.RWMutex
+	watchers map[string]*Watcher
+
+	stopWatch stopChan
+
+	// stopOnce guarantees that Stop() is only called once
+	stopOnce sync.Once
+
+	// stopWait is the wait group to wait for watchers to exit gracefully
+	stopWait sync.WaitGroup
+}
+
+func newWatcherState() *watcherState {
+	return &watcherState{
+		watchers:  map[string]*Watcher{},
+		stopWatch: make(stopChan),
+	}
+}
+
+func (s *watcherState) addWatcher(prefix string, w *Watcher, watchFunc func(prefix string)) {
+	s.mutex.Lock()
+
+	if len(s.watchers) == 0 {
+		s.stopWait.Add(1)
+		i := strings.IndexAny(prefix, "/")
+		go watchFunc(prefix[:i])
+	}
+
+	s.watchers[prefix] = w
+	s.mutex.Unlock()
+}
+
+func (s *watcherState) removeWatcher(prefix string) {
+	s.mutex.Lock()
+	delete(s.watchers, prefix)
+
+	if len(s.watchers) == 0 {
+		close(s.stopWatch)
+		s.stopWait.Wait()
+	}
+	s.mutex.Unlock()
+}
+
+func (s *watcherState) sendEvent(event KeyValueEvent) {
+	s.mutex.RLock()
+	defer s.mutex.RUnlock()
+
+	for prefix, w := range s.watchers {
+		if event.Key == "" || strings.HasPrefix(event.Key, prefix) {
+			w.Events <- event
+		}
+	}
 }

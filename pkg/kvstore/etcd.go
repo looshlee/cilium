@@ -202,6 +202,10 @@ func Hint(err error) error {
 	}
 }
 
+func (e *etcdClient) WatcherStopped(prefix string) {
+	e.watcherState.removeWatcher(prefix)
+}
+
 type etcdClient struct {
 	// firstSession is a channel that will be closed once the first session
 	// is set up in the etcd Client.
@@ -234,6 +238,8 @@ type etcdClient struct {
 	extraOptions *ExtraOptions
 
 	limiter *rate.Limiter
+
+	watcherState *watcherState
 }
 
 func (e *etcdClient) getLogger() *logrus.Entry {
@@ -408,6 +414,7 @@ func connectEtcdClient(config *client.Config, cfgPath string, errChan chan error
 		stopStatusChecker:    make(chan struct{}),
 		extraOptions:         opts,
 		limiter:              rate.NewLimiter(rate.Limit(rateLimit), rateLimit),
+		watcherState:         newWatcherState(),
 	}
 
 	// wait for session to be created also in parallel
@@ -532,20 +539,19 @@ func (e *etcdClient) DeletePrefix(path string) error {
 }
 
 // Watch starts watching for changes in a prefix
-func (e *etcdClient) Watch(w *Watcher) {
+func (e *etcdClient) Watch(prefix string) {
 	localCache := watcherCache{}
 	listSignalSent := false
 
 	scopedLog := e.getLogger().WithFields(logrus.Fields{
-		fieldWatcher: w,
-		fieldPrefix:  w.prefix,
+		fieldPrefix: prefix,
 	})
 	<-e.Connected()
 
 reList:
 	for {
 		e.limiter.Wait(ctx.TODO())
-		res, err := e.client.Get(ctx.Background(), w.prefix, client.WithPrefix(),
+		res, err := e.client.Get(ctx.Background(), prefix, client.WithPrefix(),
 			client.WithSerializable())
 		if err != nil {
 			scopedLog.WithError(Hint(err)).Warn("Unable to list keys before starting watcher")
@@ -566,11 +572,11 @@ reList:
 				scopedLog.Debugf("Emitting list result as %v event for %s=%v", t, key.Key, key.Value)
 
 				queueStart := spanstat.Start()
-				w.Events <- KeyValueEvent{
+				e.watcherState.sendEvent(KeyValueEvent{
 					Key:   string(key.Key),
 					Value: key.Value,
 					Typ:   t,
-				}
+				})
 				trackEventQueued(string(key.Key), t, queueStart.End(true).Total())
 			}
 		}
@@ -591,13 +597,13 @@ reList:
 
 			scopedLog.Debugf("Emitting EventTypeDelete event for %s", k)
 			queueStart := spanstat.Start()
-			w.Events <- event
+			e.watcherState.sendEvent(event)
 			trackEventQueued(k, EventTypeDelete, queueStart.End(true).Total())
 		})
 
 		// Only send the list signal once
 		if !listSignalSent {
-			w.Events <- KeyValueEvent{Typ: EventTypeListDone}
+			e.watcherState.sendEvent(KeyValueEvent{Typ: EventTypeListDone})
 			listSignalSent = true
 		}
 
@@ -605,13 +611,12 @@ reList:
 		scopedLog.WithField(fieldRev, nextRev).Debug("Starting to watch a prefix")
 
 		e.limiter.Wait(ctx.TODO())
-		etcdWatch := e.client.Watch(ctx.Background(), w.prefix,
+		etcdWatch := e.client.Watch(ctx.Background(), prefix,
 			client.WithPrefix(), client.WithRev(nextRev))
 		for {
 			select {
-			case <-w.stopWatch:
-				close(w.Events)
-				w.stopWait.Done()
+			case <-e.watcherState.stopWatch:
+				e.watcherState.stopWait.Done()
 				return
 
 			case r, ok := <-etcdWatch:
@@ -663,7 +668,7 @@ reList:
 					scopedLog.Debugf("Emitting %v event for %s=%v", event.Typ, event.Key, event.Value)
 
 					queueStart := spanstat.Start()
-					w.Events <- event
+					e.watcherState.sendEvent(event)
 					trackEventQueued(string(ev.Kv.Key), event.Typ, queueStart.End(true).Total())
 				}
 			}
@@ -958,11 +963,10 @@ func (e *etcdClient) Decode(in string) ([]byte, error) {
 
 // ListAndWatch implements the BackendOperations.ListAndWatch using etcd
 func (e *etcdClient) ListAndWatch(name, prefix string, chanSize int) *Watcher {
-	w := newWatcher(name, prefix, chanSize)
+	w := newWatcher(name, prefix, chanSize, e)
+	e.watcherState.addWatcher(prefix, w, e.Watch)
 
 	e.getLogger().WithField(fieldWatcher, w).Debug("Starting watcher...")
-
-	go e.Watch(w)
 
 	return w
 }

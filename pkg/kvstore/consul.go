@@ -174,6 +174,7 @@ type consulClient struct {
 	extraOptions   *ExtraOptions
 	disconnectedMu lock.RWMutex
 	disconnected   chan struct{}
+	watcherState   *watcherState
 }
 
 func newConsulClient(config *consulAPI.Config, opts *ExtraOptions) (BackendOperations, error) {
@@ -228,6 +229,7 @@ func newConsulClient(config *consulAPI.Config, opts *ExtraOptions) (BackendOpera
 		controllers:  controller.NewManager(),
 		extraOptions: opts,
 		disconnected: make(chan struct{}),
+		watcherState: newWatcherState(),
 	}
 
 	client.controllers.UpdateController(fmt.Sprintf("consul-lease-keepalive-%p", c),
@@ -278,7 +280,7 @@ func (c *consulClient) LockPath(ctx context.Context, path string) (kvLocker, err
 }
 
 // Watch starts watching for changes in a prefix
-func (c *consulClient) Watch(w *Watcher) {
+func (c *consulClient) Watch(prefix string) {
 	// Last known state of all KVPairs matching the prefix
 	localState := map[string]consulAPI.KVPair{}
 	nextIndex := uint64(0)
@@ -293,10 +295,10 @@ func (c *consulClient) Watch(w *Watcher) {
 		sleepTime := 1 * time.Millisecond
 
 		qo.WaitIndex = nextIndex
-		pairs, q, err := c.KV().List(w.prefix, &qo)
+		pairs, q, err := c.KV().List(prefix, &qo)
 		if err != nil {
 			sleepTime = 5 * time.Second
-			Trace("List of Watch failed", err, logrus.Fields{fieldPrefix: w.prefix, fieldWatcher: w.name})
+			Trace("List of Watch failed", err, logrus.Fields{fieldPrefix: prefix})
 		}
 
 		if q != nil {
@@ -319,19 +321,19 @@ func (c *consulClient) Watch(w *Watcher) {
 				}
 
 				queueStart := spanstat.Start()
-				w.Events <- KeyValueEvent{
+				c.watcherState.sendEvent(KeyValueEvent{
 					Typ:   EventTypeCreate,
 					Key:   newPair.Key,
 					Value: newPair.Value,
-				}
+				})
 				trackEventQueued(newPair.Key, EventTypeCreate, queueStart.End(true).Total())
 			} else if oldPair.ModifyIndex != newPair.ModifyIndex {
 				queueStart := spanstat.Start()
-				w.Events <- KeyValueEvent{
+				c.watcherState.sendEvent(KeyValueEvent{
 					Typ:   EventTypeModify,
 					Key:   newPair.Key,
 					Value: newPair.Value,
-				}
+				})
 				trackEventQueued(newPair.Key, EventTypeModify, queueStart.End(true).Total())
 			}
 
@@ -343,11 +345,11 @@ func (c *consulClient) Watch(w *Watcher) {
 
 		for k, deletedPair := range localState {
 			queueStart := spanstat.Start()
-			w.Events <- KeyValueEvent{
+			c.watcherState.sendEvent(KeyValueEvent{
 				Typ:   EventTypeDelete,
 				Key:   deletedPair.Key,
 				Value: deletedPair.Value,
-			}
+			})
 			trackEventQueued(deletedPair.Key, EventTypeDelete, queueStart.End(true).Total())
 			delete(localState, k)
 		}
@@ -359,15 +361,14 @@ func (c *consulClient) Watch(w *Watcher) {
 
 		// Initial list operation has been completed, signal this
 		if qo.WaitIndex == 0 {
-			w.Events <- KeyValueEvent{Typ: EventTypeListDone}
+			c.watcherState.sendEvent(KeyValueEvent{Typ: EventTypeListDone})
 		}
 
 	wait:
 		select {
 		case <-time.After(sleepTime):
-		case <-w.stopWatch:
-			close(w.Events)
-			w.stopWait.Done()
+		case <-c.watcherState.stopWatch:
+			c.watcherState.stopWait.Done()
 			return
 		}
 	}
@@ -596,11 +597,14 @@ func (c *consulClient) Decode(in string) ([]byte, error) {
 
 // ListAndWatch implements the BackendOperations.ListAndWatch using consul
 func (c *consulClient) ListAndWatch(name, prefix string, chanSize int) *Watcher {
-	w := newWatcher(name, prefix, chanSize)
+	w := newWatcher(name, prefix, chanSize, c)
+	c.watcherState.addWatcher(prefix, w, c.Watch)
 
 	log.WithField(fieldWatcher, w).Debug("Starting watcher...")
 
-	go c.Watch(w)
-
 	return w
+}
+
+func (c *consulClient) WatcherStopped(prefix string) {
+	c.watcherState.removeWatcher(prefix)
 }

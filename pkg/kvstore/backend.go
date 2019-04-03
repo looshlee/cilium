@@ -179,7 +179,7 @@ type BackendOperations interface {
 	// Watch starts watching for changes in a prefix. If list is true, the
 	// current keys matching the prefix will be listed and reported as new
 	// keys first.
-	Watch(w *Watcher)
+	Watch(prefix string)
 
 	// Close closes the kvstore client
 	Close()
