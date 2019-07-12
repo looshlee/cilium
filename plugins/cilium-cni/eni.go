@@ -41,14 +41,18 @@ func prepareENI(mac string, mtu int) (index int, err error) {
 		if link.Attrs().HardwareAddr.String() == mac {
 			index = link.Attrs().Index
 
-			if err = netlink.LinkSetMTU(link, mtu); err != nil {
-				err = fmt.Errorf("unable to change MTU of link %s to %d: %s", link.Attrs().Name, mtu, err)
-				return
+			if link.Attrs().MTU != mtu {
+				if err = netlink.LinkSetMTU(link, mtu); err != nil {
+					err = fmt.Errorf("unable to change MTU of link %s to %d: %s", link.Attrs().Name, mtu, err)
+					return
+				}
 			}
 
-			if err = netlink.LinkSetUp(link); err != nil {
-				err = fmt.Errorf("unable to up link %s: %s", link.Attrs().Name, err)
-				return
+			if link.Attrs().OperState == netlink.OperDown {
+				if err = netlink.LinkSetUp(link); err != nil {
+					err = fmt.Errorf("unable to up link %s: %s", link.Attrs().Name, err)
+					return
+				}
 			}
 
 			return
