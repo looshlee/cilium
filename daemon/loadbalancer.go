@@ -16,6 +16,9 @@ package main
 
 import (
 	"fmt"
+	"net"
+	"os"
+	"strconv"
 	"time"
 
 	"github.com/cilium/cilium/api/v1/models"
@@ -836,6 +839,46 @@ func restoreServices() {
 		"skipped":          skipped,
 		"removed":          removed,
 	}).Info("Restore service IDs from BPF maps")
+}
+
+// TODO(brb) comment
+func (d *Daemon) addBootstrapK8sAPIServer(addr string) error {
+	feIP := os.Getenv("KUBERNETES_SERVICE_HOST")
+	fePort := os.Getenv("KUBERNETES_SERVICE_PORT")
+	if feIP == "" || fePort == "" {
+		return fmt.Errorf("KUBERNETES_SERVICE_{HOST,PORT} env variable is not set")
+	}
+	fePortNum, err := strconv.Atoi(fePort)
+	if err != nil {
+		return fmt.Errorf("Invalid KUBERNETES_SERVICE_PORT %s: %s", fePort, err)
+	}
+	feAddr := loadbalancer.NewL3n4Addr(loadbalancer.NONE, net.ParseIP(feIP), uint16(fePortNum))
+
+	if lbmap.Exists(feAddr) {
+		// TODO(brb) log
+		return nil
+	}
+
+	beIP, bePort, err := net.SplitHostPort(addr)
+	if err != nil {
+		return fmt.Errorf("Invalid bootstrap api-server addr format (ip:port): %s", addr)
+	}
+	bePortNum, err := strconv.Atoi(bePort)
+	if err != nil {
+		return fmt.Errorf("Invalid bootstrap api-server port %s: %s", bePort, err)
+	}
+
+	feAddrWithID, err := service.AcquireID(*feAddr, 0)
+	if err != nil {
+		return fmt.Errorf("Unable to acquire service ID for %s: %s", feAddr, err)
+	}
+	be := loadbalancer.NewLBBackEnd(0, loadbalancer.NONE, net.ParseIP(beIP), uint16(bePortNum), 0)
+	if _, err := d.svcAdd(*feAddrWithID, []loadbalancer.LBBackEnd{*be}, true, false); err != nil {
+		return fmt.Errorf("Unable to add bootstrap api-server svc %s => %s: %s",
+			feAddrWithID, be, err)
+	}
+
+	return nil
 }
 
 // GetServiceList returns list of services

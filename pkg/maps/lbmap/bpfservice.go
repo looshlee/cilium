@@ -262,3 +262,10 @@ func (l *lbmapCache) removeBackendsWithRefCountZero() map[BackendAddrID]BackendK
 
 	return removed
 }
+
+// TODO(brb) comment
+func (l *lbmapCache) exists(svcKey ServiceKeyV2) bool {
+	frontendID := svcKey.String()
+	_, found := l.entries[frontendID]
+	return found
+}

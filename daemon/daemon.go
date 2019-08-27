@@ -795,6 +795,15 @@ func NewDaemon(dp datapath.Datapath, iptablesManager rulesManager) (*Daemon, *en
 		bootstrapStats.restore.End(true)
 	}
 
+	// TODO(brb):
+	// - document: this should happen after restoreServices
+	// - mutual excl with api-server and kubeconfig
+	if option.Config.K8sBootstrapAPIServer != "" && !option.Config.DryMode {
+		if err := d.addBootstrapK8sAPIServer(option.Config.K8sBootstrapAPIServer); err != nil {
+			return nil, nil, err
+		}
+	}
+
 	t, err := trigger.NewTrigger(trigger.Parameters{
 		Name:            "policy_update",
 		MetricsObserver: &policyTriggerMetrics{},

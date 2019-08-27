@@ -763,3 +763,19 @@ func RemoveDeprecatedMaps() error {
 	}
 	return nil
 }
+
+// TODO(brb) comment
+func Exists(svc *loadbalancer.L3n4Addr) bool {
+	mutex.Lock()
+	defer mutex.Unlock()
+
+	var svcKey ServiceKeyV2
+
+	if !svc.IsIPv6() {
+		svcKey = NewService4KeyV2(svc.IP, svc.Port, u8proto.ANY, 0)
+	} else {
+		svcKey = NewService6KeyV2(svc.IP, svc.Port, u8proto.ANY, 0)
+	}
+
+	return cache.exists(svcKey)
+}

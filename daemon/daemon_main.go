@@ -584,6 +584,8 @@ func init() {
 	flags.String(option.K8sKubeConfigPath, "", "Absolute path of the kubernetes kubeconfig file")
 	option.BindEnv(option.K8sKubeConfigPath)
 
+	flags.String(option.K8sBootstrapAPIServer, "", "Kubernetes api server address for bootstrapping without kube-proxy")
+
 	flags.String(option.K8sNamespaceName, "", "Name of the Kubernetes namespace in which Cilium is deployed in")
 	flags.MarkHidden(option.K8sNamespaceName)
 	option.BindEnv(option.K8sNamespaceName)
