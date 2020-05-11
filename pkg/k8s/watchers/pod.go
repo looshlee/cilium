@@ -24,6 +24,7 @@ import (
 	"sync"
 
 	"github.com/cilium/cilium/pkg/annotation"
+	"github.com/cilium/cilium/pkg/bpf"
 	"github.com/cilium/cilium/pkg/comparator"
 	"github.com/cilium/cilium/pkg/endpoint"
 	"github.com/cilium/cilium/pkg/endpoint/regeneration"
@@ -391,13 +392,17 @@ func (k *K8sWatcher) UpsertHostPortMapping(pod *slim_corev1.Pod, podIPs []string
 		return fmt.Errorf("no/invalid HostIP: %s", pod.Status.HostIP)
 	}
 
+	num := 0
 	for _, dpSvc := range svcs {
+		time, _ := bpf.GetMtime()
 		if _, _, err := k.svcManager.UpsertService(dpSvc.Frontend, dpSvc.Backends, dpSvc.Type,
-			dpSvc.TrafficPolicy, false, 0, dpSvc.HealthCheckNodePort, pod.ObjectMeta.Name+"-host-port",
+			dpSvc.TrafficPolicy, false, 0, dpSvc.HealthCheckNodePort,
+			fmt.Sprintf("%s-host-port-%d-%d", pod.ObjectMeta.Name, num, time),
 			pod.ObjectMeta.Namespace); err != nil {
 			logger.WithError(err).Error("Error while inserting service in LB map")
 			return err
 		}
+		num++
 	}
 
 	return nil
