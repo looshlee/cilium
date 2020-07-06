@@ -57,3 +57,11 @@ rules:
   - get
   - list
   - watch
+- apiGroups:
+  - coordination.k8s.io
+  resources:
+  # To be used during HA deployment of cilium-operator in order
+  # to obtain lease lock for leader election.
+  - leases
+  verbs:
+  - '*'
