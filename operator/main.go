@@ -53,7 +53,7 @@ import (
 )
 
 var (
-	leaderElectionLeaseLockName = "cilium-operator-lease-resource-lock"
+	leaderElectionResourceLockName = "cilium-operator-resource-lock"
 
 	binaryName = filepath.Base(os.Args[0])
 
@@ -109,15 +109,20 @@ func initEnv() {
 	option.LogRegisteredOptions(log)
 }
 
+func doCleanup() {
+	gops.Close()
+	close(shutdownSignal)
+	leaderElectionCtxCancel()
+	os.Exit(0)
+}
+
 func main() {
 	signals := make(chan os.Signal, 1)
 	signal.Notify(signals, unix.SIGINT, unix.SIGTERM)
 
 	go func() {
 		<-signals
-		gops.Close()
-		close(shutdownSignal)
-		leaderElectionCtxCancel()
+		doCleanup()
 	}()
 
 	// Open socket for using gops to get stacktraces of the agent.
@@ -174,7 +179,9 @@ func runOperator() {
 	close(k8sInitDone)
 
 	k8sversion.Update(k8s.Client(), option.Config)
-	if !k8sversion.Capabilities().MinimalVersionMet {
+	capabilities := k8sversion.Capabilities()
+
+	if !capabilities.MinimalVersionMet {
 		log.Fatalf("Minimal kubernetes version not met: %s < %s",
 			k8sversion.Version(), k8sversion.MinimalVersionConstraint)
 	}
@@ -194,23 +201,42 @@ func runOperator() {
 		ns = metav1.NamespaceDefault
 	}
 
-	leaseLock := &resourcelock.LeaseLock{
-		LeaseMeta: metav1.ObjectMeta{
-			Name:      leaderElectionLeaseLockName,
-			Namespace: ns,
-		},
-		Client: k8s.Client().CoordinationV1(),
-		LockConfig: resourcelock.ResourceLockConfig{
-			// Identity name of the holder
-			Identity: operatorID,
-		},
+	var leResourceLock resourcelock.Interface
+	lockMeta := metav1.ObjectMeta{
+		Name:      leaderElectionResourceLockName,
+		Namespace: ns,
+	}
+	lockCfg := resourcelock.ResourceLockConfig{
+		// Identity name of the lock holder
+		Identity: operatorID,
+	}
+
+	// If the K8S version has support for coordination.k8s.io/v1 use LeasesResourceLock
+	// for resourcelock config else fallback to ConfigMapResourceLock.
+	//
+	// LeasesResourceLock type is preferred because edits to Leases are less common
+	// and fewer objects in the cluster watch "all Leases". But using ConfigMapResourceLock
+	// or EndpointResourceLock will bring out the same results for earlier versions of
+	// Kubernetes.
+	if capabilities.LeasesResourceLock {
+		leResourceLock = &resourcelock.LeaseLock{
+			LeaseMeta:  lockMeta,
+			Client:     k8s.Client().CoordinationV1(),
+			LockConfig: lockCfg,
+		}
+	} else {
+		leResourceLock = &resourcelock.ConfigMapLock{
+			ConfigMapMeta: lockMeta,
+			Client:        k8s.Client().CoreV1(),
+			LockConfig:    lockCfg,
+		}
 	}
 
 	// Start the leader election for running cilium-operators
 	leaderelection.RunOrDie(leaderElectionCtx, leaderelection.LeaderElectionConfig{
-		Name: leaderElectionLeaseLockName,
+		Name: leaderElectionResourceLockName,
 
-		Lock:            leaseLock,
+		Lock:            leResourceLock,
 		ReleaseOnCancel: true,
 
 		LeaseDuration: operatorOption.Config.LeaderElectionLeaseDuration,
@@ -220,18 +246,32 @@ func runOperator() {
 		Callbacks: leaderelection.LeaderCallbacks{
 			OnStartedLeading: onOperatorStartLeading,
 			OnStoppedLeading: func() {
-				log.WithField("operator_id", operatorID).Info("Leader election lost")
+				log.WithField("operator-id", operatorID).Info("Leader election lost")
 				// Cleanup everything here, and exit.
-				gops.Close()
-				close(shutdownSignal)
-				leaderElectionCtxCancel()
-				os.Exit(0)
+				doCleanup()
 			},
 			OnNewLeader: func(identity string) {
 				if identity == operatorID {
 					log.Info("Leading the operator HA deployment")
 				} else {
-					log.WithField("operator_id", operatorID).Infof("Operator with ID %s elected as new leader", identity)
+					log.WithField("operator-id", operatorID).Infof("Operator with ID %s elected as new leader", identity)
+				}
+
+				// Update the K8S version capabilities so we can check if we are using
+				// the right kind of lock supported for the version.
+				err := k8sversion.Update(k8s.Client(), option.Config)
+				if err != nil {
+					log.WithField("operator-id", operatorID).WithError(err).Error("Error updating K8s version capabilities")
+					doCleanup()
+				}
+
+				// If the current K8s version supports LeasesResourceLock but we are not using
+				// it as the resourcelock for leader election, then exit the operator.
+				// This is to make sure that next time the operator Pod comes up it uses LeasesResourceLock
+				// instead of ConfigMapResourceLock
+				if _, ok := leResourceLock.(*resourcelock.LeaseLock); k8sversion.Capabilities().LeasesResourceLock && !ok {
+					log.WithField("operator-id", operatorID).Error("LeaderElection is not using the required LeasesResourceLock")
+					doCleanup()
 				}
 			},
 		},
