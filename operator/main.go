@@ -107,6 +107,9 @@ func initEnv() {
 	logging.SetupLogging(option.Config.LogDriver, logging.LogOptions(option.Config.LogOpt), binaryName, option.Config.Debug)
 
 	option.LogRegisteredOptions(log)
+	// Enable fallback to direct API probing to check for support of Leases in
+	// case Discovery API fails.
+	option.Config.EnableK8sLeasesFallbackDiscovery()
 }
 
 func doCleanup() {
