@@ -6,7 +6,9 @@
 # once a new label is added to a pod. If we delay the identity change
 # process the test will fail.
 
-helm template install/kubernetes/cilium \
+# We generate the helm chart template validating it against the required Kubernetes
+# Cluster.
+helm template --validate install/kubernetes/cilium \
   --namespace=kube-system \
   --set global.registry=k8s1:5000/cilium \
   --set global.tag=latest \
@@ -20,10 +22,7 @@ helm template install/kubernetes/cilium \
   --set global.etcd.leaseTTL=30s \
   --set global.ipv4.enabled=true \
   --set global.ipv6.enabled=true \
-  --set config.identityChangeGracePeriod="0s" \
-  > cilium.yaml
-
-kubectl apply -f cilium.yaml
+  --set config.identityChangeGracePeriod="0s"
 
 while true; do
     result=$(kubectl -n kube-system get pods -l k8s-app=cilium | grep "Running" -c)
