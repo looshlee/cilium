@@ -10,8 +10,8 @@
 Performance Evaluation
 **********************
 
-This document presents the steps to evaluate Cilium networking performance, as
-well as the results of the latter. Our primary goal is to make the evaluation
+This document presents the steps to evaluate Cilium networking performance.
+Our primary goal is to make the evaluation
 process transparent and its results easily reproducible. In this document, we
 focus on small-scale experiments. For larger deployments, refer to the :ref:`scalability_guide`.
 
@@ -30,7 +30,7 @@ The rest of this document is organized as follows:
    our evaluation. This includes everything that is to be executed only once
    regardless of the number of Cilium configurations that are to be evaluated.
 
-#. `Evaluation`_ discusses the methodology and tools of our the evaluation.
+#. `Evaluation`_ discusses the methodology and tools of the evaluation.
 
 #. `Results`_  presents our results for three different Cilium configurations:
 
@@ -254,10 +254,10 @@ is, multiple streams converge close to the NICs line rate.
 
 Given the single stream bottlenecks, we have recently been `working
 <https://lore.kernel.org/bpf/cover.1600967205.git.daniel@iogearbox.net/T/>`_ on
-improving the performance of veth through eBPF. Early experiments on our
+improving the performance of veth through new eBPF features. Early experiments on our
 development branch ``cilium-v1.9-routing`` show that we were able to overcome
-these issues in direct routing mode. Additional optimizations are being worked
-on to improve performance and latency even beyond these results.
+these issues in direct routing mode. Additional, optimizations are being worked
+on to improve performance and latency beyond the results shown here.
 
 Using a Larger MTU
 ..................
