@@ -51,6 +51,20 @@ If you intent to release a new feature release, see the
        instance, indentation mismatches) as well as duplicate contributor
        names, and correct them accordingly.
 
+#. Set the right version for the ``CustomResourceDefinitionSchemaVersion`` in
+   the ``pkg/k8s/client`` by following these instructions:
+
+   If you are doing the first RC for a new minor version the validation schema
+   version should be ``vX.Y.1`` regardless of the value set in
+   ``CustomResourceDefinitionSchemaVersion``.
+
+   If this is not the first RC run, and there is a branch for `vX.Y`:
+
+   Run ``./Documentation/check-compat-table.sh vX.Y``
+
+   If there is not a branch for `vX.Y` yet, make sure the CRD schema is either
+   not incremented, in case there were no changes or it is incremented at
+   maximum of +1 patch versions in case there were CRD changes.
 
 #. Add all modified files using ``git add`` and create a pull request with the
    title ``Prepare for release vX.Y.Z-rcW+1``. Add the backport label to the PR which
