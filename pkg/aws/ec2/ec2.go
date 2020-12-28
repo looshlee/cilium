@@ -61,7 +61,7 @@ func NewClient(ec2Client *ec2.Client, metrics MetricsAPI, rateLimit float64, bur
 
 // NewConfig returns a new aws.Config configured with the correct region + endpoint resolver
 func NewConfig(ctx context.Context) (aws.Config, error) {
-	cfg, err := awsconfig.LoadDefaultConfig(ctx)
+	cfg, err := awsconfig.LoadDefaultConfig(ctx, awsconfig.WithLogger(ec2Logger{}))
 	if err != nil {
 		return aws.Config{}, fmt.Errorf("unable to load AWS configuration: %w", err)
 	}
