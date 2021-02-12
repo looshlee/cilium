@@ -1,0 +1,15 @@
+stages:
+  - build
+
+build:
+  stage: build
+  tags: [ "runner:docker" ]
+  image: 486234852809.dkr.ecr.us-east-1.amazonaws.com/docker:v3892323-786b6fd-20.10.3
+  only:
+    - tags  
+  script:
+    - |
+      export DOCKER_REGISTRY=486234852809.dkr.ecr.us-east-1.amazonaws.com
+      export DOCKER_BUILDKIT=1
+      export DOCKER_BUILDX=1
+      make docker-image-runtime
