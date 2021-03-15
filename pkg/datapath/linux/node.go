@@ -454,8 +454,22 @@ func upsertIPsecLog(err error, spec string, loc, rem *net.IPNet, spi uint8) {
 	}
 }
 
+// getDefaultEncryptionInterface() is needed to find the interface used when
+// populating neighbor table and doing arpRequest. For most configurations
+// there is only a single interface so choosing [0] works by choosing the only
+// interface. However EKS, uses multiple interfaces, but fortunately for us
+// in EKS any interface would work so pick the [0] index here as well.
+func getDefaultEncryptionInterface() string {
+	iface := ""
+	if len(option.Config.EncryptInterface) > 0 {
+		iface = option.Config.EncryptInterface[0]
+	}
+	return iface
+}
+
 func getLinkLocalIp(family int) (*net.IPNet, error) {
-	link, err := netlink.LinkByName(option.Config.EncryptInterface)
+	iface := getDefaultEncryptionInterface()
+	link, err := netlink.LinkByName(iface)
 	if err != nil {
 		return nil, err
 	}
@@ -884,7 +898,7 @@ func (n *linuxNodeHandler) nodeUpdate(oldNode, newNode *nodeTypes.Node, firstAdd
 		if option.Config.EnableNodePort {
 			ifaceName = option.Config.DirectRoutingDevice
 		} else {
-			ifaceName = option.Config.EncryptInterface
+			ifaceName = option.Config.EncryptInterface[0]
 		}
 		n.insertNeighbor(context.Background(), newNode, ifaceName, false)
 	}
@@ -1080,7 +1094,7 @@ func (n *linuxNodeHandler) createNodeIPSecInRoute(ip *net.IPNet) route.Route {
 	var device string
 
 	if option.Config.Tunnel == option.TunnelDisabled {
-		device = n.datapathConfig.EncryptInterface
+		device = n.datapathConfig.EncryptInterfaces[0]
 	} else {
 		device = linux_defaults.TunnelDeviceName
 	}
@@ -1354,7 +1368,7 @@ func (n *linuxNodeHandler) NodeNeighborRefresh(ctx context.Context, nodeToRefres
 	if option.Config.EnableNodePort {
 		ifaceName = option.Config.DirectRoutingDevice
 	} else if option.Config.EnableIPSec {
-		ifaceName = option.Config.EncryptInterface
+		ifaceName = option.Config.EncryptInterface[0]
 	}
 	refreshComplete := make(chan struct{})
 	go n.refreshNeighbor(ctx, &nodeToRefresh, ifaceName, refreshComplete)
