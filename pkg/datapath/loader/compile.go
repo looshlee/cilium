@@ -292,7 +292,7 @@ func compile(ctx context.Context, prog *progInfo, dir *directoryInfo, debug bool
 		if debug {
 			// FIXME: Latest clang/llvm generates incompatible BTF that
 			// iproute2 cannot load.
-			//args = append(args, "-g")
+			args = append(args, "-g")
 		}
 	}
 
