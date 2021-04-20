@@ -687,7 +687,12 @@ func (n *linuxNodeHandler) insertNeighbor(ctx context.Context, newNode *nodeType
 	scopedLog = scopedLog.WithField(logfields.IPAddr, nextHopIPv4)
 
 	n.neighLock.Lock()
-	defer n.neighLock.Unlock()
+	locked := true
+	defer func() {
+		if locked {
+			n.neighLock.Unlock()
+		}
+	}()
 
 	if existingNextHopStr, found := n.neighNextHopByNode[newNode.Identity()]; found {
 		if existingNextHopStr == nextHopStr {
@@ -729,16 +734,25 @@ func (n *linuxNodeHandler) insertNeighbor(ctx context.Context, newNode *nodeType
 		nextHopIsNew = n.neighNextHopRefCount.Add(nextHopStr)
 	}
 
+	n.neighLock.Unlock() // to allow concurrent arpings bellow
+	locked = false
+
 	// nextHop hasn't been arpinged before OR we are refreshing neigh entry
+	var hwAddr net.HardwareAddr
 	if nextHopIsNew || refresh {
-		hwAddr, err := arp.PingOverLink(n.neighDiscoveryLink, srcIPv4, nextHopIPv4)
+		hwAddr, err = arp.PingOverLink(n.neighDiscoveryLink, srcIPv4, nextHopIPv4)
 		if err != nil {
 			scopedLog.WithError(err).Info("arping failed")
 			metrics.ArpingRequestsTotal.WithLabelValues(failed).Inc()
 			return
 		}
 		metrics.ArpingRequestsTotal.WithLabelValues(success).Inc()
+	}
 
+	n.neighLock.Lock()
+	locked = true
+
+	if hwAddr != nil {
 		if prevHwAddr, found := n.neighByNextHop[nextHopStr]; found && prevHwAddr.String() == hwAddr.String() {
 			// Nothing to update, return early to avoid calling to netlink. This
 			// is based on the assumption that n.neighByNextHop gets populated
