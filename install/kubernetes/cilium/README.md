@@ -126,6 +126,7 @@ contributors across the globe, there is almost always someone available to help.
 | encryption.mountPath | string | `"/etc/ipsec"` | Path to mount the secret inside the Cilium pod. |
 | encryption.nodeEncryption | bool | `false` | Enable encryption for pure node to node traffic. |
 | encryption.secretName | string | `"cilium-ipsec-keys"` | Name of the Kubernetes secret containing the encryption keys. |
+| encryption.type | string | `"ipsec"` | Encryption method. Can be either ipsec or wireguard. |
 | endpointHealthChecking.enabled | bool | `true` |  |
 | endpointRoutes.enabled | bool | `false` | Enable use of per endpoint routes instead of routing via the cilium_host interface. |
 | eni.awsReleaseExcessIPs | bool | `false` | Release IPs not used from the ENI |
