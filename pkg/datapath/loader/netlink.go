@@ -82,7 +82,7 @@ func (l *Loader) replaceDatapath(ctx context.Context, ifName, objPath, progSec, 
 	// FIXME: replace exec with native call
 	args := []string{"filter", "replace", "dev", ifName, progDirection,
 		"prio", "1", "handle", "1", "bpf", "da", "obj", objPath,
-		"sec", progSec, "verb",
+		"sec", progSec,
 	}
 	cmd = exec.CommandContext(ctx, "tc", args...).WithFilters(libbpfFixupMsg)
 	_, err = cmd.CombinedOutput(log, true)
