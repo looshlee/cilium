@@ -31,4 +31,4 @@ jobs:
       - name: Set up job variables
         id: vars
         run: |
-          echo ${{ TEST }} 
+          echo $TEST
