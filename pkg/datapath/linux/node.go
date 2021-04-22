@@ -695,17 +695,7 @@ func (n *linuxNodeHandler) insertNeighbor(ctx context.Context, newNode *nodeType
 	}()
 
 	if existingNextHopStr, found := n.neighNextHopByNode[newNode.Identity()]; found {
-		if existingNextHopStr == nextHopStr {
-			// We already know about the nextHop of the given newNode. Can happen
-			// when insertNeighbor is called by NodeUpdate multiple times for
-			// the same node.
-			if !refresh {
-				// In the case of refresh, don't return early, as we want to
-				// update the related neigh entry even if the nextHop is the same
-				// (e.g. to detect the GW MAC addr change).
-				return
-			}
-		} else if n.neighNextHopRefCount.Delete(existingNextHopStr) {
+		if existingNextHopStr != nextHopStr && n.neighNextHopRefCount.Delete(existingNextHopStr) {
 			// nextHop has changed and nobody else is using it, so remove the old one.
 			neigh, found := n.neighByNextHop[existingNextHopStr]
 			if found {
