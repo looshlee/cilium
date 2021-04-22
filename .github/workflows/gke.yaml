@@ -23,7 +23,7 @@ jobs:
 
     steps:
       - name: Set up job variables
-        if: ${{ env.TEST === true }}
+        if: ${{ env.TEST == true }}
         id: vars
         run: |
           echo $TEST
