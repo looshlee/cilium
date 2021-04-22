@@ -732,7 +732,7 @@ func (n *linuxNodeHandler) insertNeighbor(ctx context.Context, newNode *nodeType
 	if nextHopIsNew || refresh {
 		hwAddr, err = arp.PingOverLink(n.neighDiscoveryLink, srcIPv4, nextHopIPv4)
 		if err != nil {
-			scopedLog.WithError(err).Info("arping failed")
+			scopedLog.WithError(err).Debug("arping failed")
 			metrics.ArpingRequestsTotal.WithLabelValues(failed).Inc()
 			return
 		}
