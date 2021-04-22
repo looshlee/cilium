@@ -18,7 +18,6 @@ import (
 	"context"
 	"math"
 	"net"
-	"strconv"
 	"time"
 
 	"github.com/cilium/cilium/pkg/controller"
@@ -31,21 +30,13 @@ import (
 	"github.com/cilium/cilium/pkg/node/addressing"
 	nodeTypes "github.com/cilium/cilium/pkg/node/types"
 	"github.com/cilium/cilium/pkg/option"
-	"github.com/cilium/cilium/pkg/rand"
 	"github.com/cilium/cilium/pkg/source"
-	"github.com/cilium/cilium/pkg/sysctl"
 
 	"github.com/prometheus/client_golang/prometheus"
 )
 
 var (
 	baseBackgroundSyncInterval = time.Minute
-	// The default value of kernel parameter net.ipv4.neigh.default.base_reachable_time_ms.
-	// If option.NeighborRefreshBaseInterval is not configured and we failed to
-	// read from sysctl, refresh at this interval.
-	neighborRefreshBaseInterval = 30 * time.Second
-
-	randGen = rand.NewSafeRand(time.Now().UnixNano())
 )
 
 type nodeEntry struct {
@@ -537,23 +528,8 @@ func (m *Manager) GetNodes() map[nodeTypes.Identity]nodeTypes.Node {
 }
 
 // StartNeighborRefresh spawns a controller which refreshes neighbor table
-// by sending arping periodically. Linux keeps an arp entry in reachable
-// state for (0.5 ~ 1.5) * base_reachable_time_ms, default by 15 to 45 seconds:
-// https://elixir.bootlin.com/linux/v5.7.19/source/net/core/neighbour.c#L113
-// We do the refresh in a similar way.
+// by sending arping periodically.
 func (m *Manager) StartNeighborRefresh(nh datapath.NodeHandler) {
-	var interval time.Duration
-	baseReachableStr, err := sysctl.Read("net.ipv4.neigh.default.base_reachable_time_ms")
-	if err != nil {
-		interval = neighborRefreshBaseInterval
-	} else {
-		baseReachableU32, err := strconv.ParseUint(baseReachableStr, 10, 32)
-		if err != nil {
-			interval = neighborRefreshBaseInterval
-		} else {
-			interval = time.Duration(baseReachableU32) * time.Millisecond
-		}
-	}
 	ctx, cancel := context.WithCancel(context.Background())
 	controller.NewManager().UpdateController("neighbor-table-refresh",
 		controller.ControllerParams{
@@ -571,14 +547,12 @@ func (m *Manager) StartNeighborRefresh(nh datapath.NodeHandler) {
 						continue
 					}
 					go func(c context.Context, e nodeTypes.Node) {
-						n := randGen.Int63n(int64(interval / 2))
-						time.Sleep(interval/2 + time.Duration(n))
 						nh.NodeNeighborRefresh(c, e)
 					}(ctx, entryNode)
 				}
 				return nil
 			},
-			RunInterval: interval,
+			RunInterval: option.Config.ARPPingRefreshPeriod,
 		},
 	)
 	return

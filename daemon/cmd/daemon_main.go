@@ -231,6 +231,9 @@ func init() {
 	flags.Bool(option.AnnotateK8sNode, defaults.AnnotateK8sNode, "Annotate Kubernetes node")
 	option.BindEnv(option.AnnotateK8sNode)
 
+	flags.Duration(option.ARPPingRefreshPeriod, 5*time.Minute, "Period for ARP entries to remote nodes refresher")
+	option.BindEnv(option.ARPPingRefreshPeriod)
+
 	flags.Bool(option.AutoCreateCiliumNodeResource, defaults.AutoCreateCiliumNodeResource, "Automatically create CiliumNode resource for own node on startup")
 	option.BindEnv(option.AutoCreateCiliumNodeResource)
 

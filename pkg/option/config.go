@@ -80,6 +80,9 @@ const (
 	// the daemon, which can also be disbled using this option.
 	AnnotateK8sNode = "annotate-k8s-node"
 
+	// ARPPingRefreshPeriod is the ARP entries refresher period
+	ARPPingRefreshPeriod = "arping-refresh-period"
+
 	// BPFRoot is the Path to BPF filesystem
 	BPFRoot = "bpf-root"
 
@@ -1945,6 +1948,9 @@ type DaemonConfig struct {
 	// BGPConfigPath is the file path to the BGP configuration. It is
 	// compatible with MetalLB's configuration.
 	BGPConfigPath string
+
+	// ARPPingRefreshPeriod is the ARP entries refresher period.
+	ARPPingRefreshPeriod time.Duration
 }
 
 var (
@@ -2344,6 +2350,7 @@ func (c *DaemonConfig) Populate() {
 	c.AllowICMPFragNeeded = viper.GetBool(AllowICMPFragNeeded)
 	c.AllowLocalhost = viper.GetString(AllowLocalhost)
 	c.AnnotateK8sNode = viper.GetBool(AnnotateK8sNode)
+	c.ARPPingRefreshPeriod = viper.GetDuration(ARPPingRefreshPeriod)
 	c.AutoCreateCiliumNodeResource = viper.GetBool(AutoCreateCiliumNodeResource)
 	c.BPFRoot = viper.GetString(BPFRoot)
 	c.CertDirectory = viper.GetString(CertsDirectory)
