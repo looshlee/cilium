@@ -14,13 +14,13 @@ on:
 
 jobs:
   installation-and-connectivity:
-#     if: |
-#       (github.event.issue.pull_request && (
-#         startsWith(github.event.comment.body, 'ci-gke') ||
-#         startsWith(github.event.comment.body, 'test-me-please')
-#       )) ||
-#       github.event_name == 'schedule' ||
-#       github.event.label.name == 'ci-run/gke'
+    if: |
+      ${{ (github.event.issue.pull_request && (
+        startsWith(github.event.comment.body, 'ci-gke') ||
+        startsWith(github.event.comment.body, 'test-me-please')
+      )) ||
+      github.event_name == 'push' ||
+      github.event.label.name == 'ci-run/gke' }}
     runs-on: ubuntu-latest
     env:
       TEST:  ${{ (github.event.issue.pull_request && (
